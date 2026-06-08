@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Curso PID · Seguidor de Línea ESP32 · MicroPython</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #060a12;
+  --bg2: #0d1424;
+  --bg3: #111827;
+  --card: #131e30;
+  --border: #1e2f48;
+  --border2: #243550;
+  --text: #e8f0fe;
+  --muted: #6b8cbe;
+  --muted2: #4a6a9a;
+  --cyan: #00d4ff;
+  --cyan2: #00a8cc;
+  --green: #00ff9d;
+  --green2: #00cc7d;
+  --amber: #ffb830;
+  --red: #ff4757;
+  --purple: #a855f7;
+  --glow-cyan: 0 0 20px rgba(0,212,255,0.3);
+  --glow-green: 0 0 20px rgba(0,255,157,0.3);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  font-weight:300;
+  line-height:1.7;
+  overflow-x:hidden;
+}
+
+/* NOISE TEXTURE */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;
+  z-index:0;
+  opacity:.6;
+}
+
+/* NAV */
+nav{
+  position:sticky;top:0;z-index:999;
+  background:rgba(6,10,18,0.85);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+}
+.nav-inner{
+  max-width:1280px;margin:0 auto;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.9rem 2rem;
+}
+.logo{
+  font-family:'Space Mono',monospace;
+  font-size:1.05rem;font-weight:700;
+  color:var(--cyan);letter-spacing:2px;
+}
+.logo em{color:var(--green);font-style:normal;}
+.nav-links{display:flex;gap:2rem;list-style:none;}
+.nav-links a{
+  color:var(--muted);font-size:.875rem;text-decoration:none;
+  font-family:'Space Mono',monospace;letter-spacing:.5px;
+  transition:color .2s;
+}
+.nav-links a:hover{color:var(--cyan);}
+.progress-bar{
+  height:2px;background:var(--border);
+  position:absolute;bottom:0;left:0;right:0;
+}
+.progress-fill{
+  height:100%;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  width:0%;transition:width .1s;
+}
+
+/* HERO */
+.hero{
+  position:relative;
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  text-align:center;
+  padding:6rem 2rem 4rem;
+  overflow:hidden;
+}
+.hero-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+  background-size:60px 60px;
+  animation:gridMove 20s linear infinite;
+}
+@keyframes gridMove{
+  0%{transform:translate(0,0)}
+  100%{transform:translate(60px,60px)}
+}
+.hero-glow{
+  position:absolute;
+  width:600px;height:600px;
+  background:radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%);
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.hero-content{position:relative;z-index:1;max-width:900px;}
+.hero-label{
+  display:inline-block;
+  font-family:'Space Mono',monospace;
+  font-size:.75rem;letter-spacing:3px;
+  color:var(--cyan);text-transform:uppercase;
+  border:1px solid rgba(0,212,255,.3);
+  padding:.4rem 1.2rem;border-radius:20px;
+  margin-bottom:2rem;
+  background:rgba(0,212,255,.05);
+  animation:fadeUp .8s ease both;
+}
+.hero h1{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(2.5rem,6vw,5rem);
+  font-weight:800;line-height:1.1;
+  margin-bottom:1.5rem;
+  animation:fadeUp .8s .1s ease both;
+}
+.hero h1 .line1{
+  display:block;
+  background:linear-gradient(135deg,#fff 0%,#a0c4ff 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero h1 .line2{
+  display:block;
+  background:linear-gradient(135deg,var(--cyan) 0%,var(--green) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-desc{
+  font-size:1.15rem;color:var(--muted);
+  max-width:650px;margin:0 auto 2.5rem;
+  animation:fadeUp .8s .2s ease both;
+}
+.hero-badges{
+  display:flex;flex-wrap:wrap;justify-content:center;gap:.75rem;
+  margin-bottom:3rem;
+  animation:fadeUp .8s .3s ease both;
+}
+.badge{
+  font-family:'Space Mono',monospace;font-size:.72rem;
+  padding:.4rem 1rem;border-radius:4px;
+  border:1px solid var(--border2);
+  color:var(--text);background:var(--card);
+  letter-spacing:.5px;
+}
+.badge.c{border-color:rgba(0,212,255,.4);color:var(--cyan);}
+.badge.g{border-color:rgba(0,255,157,.4);color:var(--green);}
+.badge.a{border-color:rgba(255,184,48,.4);color:var(--amber);}
+.hero-cta{
+  display:inline-flex;align-items:center;gap:.75rem;
+  background:linear-gradient(135deg,var(--cyan2),var(--green2));
+  color:#060a12;font-family:'Space Mono',monospace;
+  font-weight:700;font-size:.9rem;
+  padding:.9rem 2.5rem;border-radius:6px;
+  text-decoration:none;letter-spacing:1px;
+  box-shadow:var(--glow-cyan);
+  transition:transform .2s,box-shadow .2s;
+  animation:fadeUp .8s .4s ease both;
+}
+.hero-cta:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(0,212,255,.5);}
+@keyframes fadeUp{
+  from{opacity:0;transform:translateY(24px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* ROBOT SVG ANIMADO */
+.robot-visual{
+  margin:3rem auto 0;
+  max-width:600px;
+  animation:fadeUp .8s .5s ease both;
+}
+
+/* SECCIONES */
+.section{
+  max-width:1280px;margin:0 auto;
+  padding:5rem 2rem;
+}
+.section-tag{
+  font-family:'Space Mono',monospace;
+  font-size:.72rem;letter-spacing:3px;color:var(--cyan);
+  text-transform:uppercase;margin-bottom:.75rem;
+  display:flex;align-items:center;gap:.75rem;
+}
+.section-tag::before{
+  content:'';display:block;
+  width:30px;height:1px;background:var(--cyan);
+}
+h2.section-title{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(1.8rem,3vw,2.5rem);
+  font-weight:800;line-height:1.2;
+  margin-bottom:1rem;
+}
+.section-desc{color:var(--muted);font-size:1rem;max-width:700px;margin-bottom:3rem;}
+.divider{
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--border2),transparent);
+  margin:0;
+}
+
+/* TARJETAS CONCEPTO */
+.concept-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:1.5rem;
+}
+.concept-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:2rem;
+  position:relative;overflow:hidden;
+  transition:border-color .3s,transform .3s;
+  cursor:default;
+}
+.concept-card::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  opacity:0;transition:opacity .3s;
+}
+.concept-card:hover{
+  border-color:var(--border2);
+  transform:translateY(-4px);
+}
+.concept-card:hover::before{opacity:1;}
+.cc-icon{
+  font-size:2.5rem;margin-bottom:1rem;
+  filter:drop-shadow(0 0 8px rgba(0,212,255,.4));
+}
+.concept-card h3{
+  font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;
+  margin-bottom:.75rem;color:var(--text);
+}
+.concept-card p{color:var(--muted);font-size:.9rem;}
+
+/* INFO STRIP */
+.info-strip{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:1px;
+  background:var(--border);
+  border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;
+  margin-bottom:4rem;
+}
+.info-item{
+  background:var(--card);
+  padding:2rem;
+  text-align:center;
+}
+.info-num{
+  font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;
+  background:linear-gradient(135deg,var(--cyan),var(--green));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  display:block;
+}
+.info-label{font-size:.85rem;color:var(--muted);margin-top:.25rem;}
+
+/* SIMULADOR PID */
+.simulator{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+  margin-bottom:3rem;
+}
+.sim-header{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:1.5rem 2rem;
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:1rem;
+}
+.sim-header h3{
+  font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;
+}
+.sim-badge{
+  font-family:'Space Mono',monospace;font-size:.7rem;
+  padding:.3rem .8rem;border-radius:4px;
+  background:rgba(0,255,157,.1);border:1px solid rgba(0,255,157,.3);
+  color:var(--green);letter-spacing:1px;
+}
+.sim-body{padding:2rem;}
+.sim-canvas-wrap{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;
+  margin-bottom:1.5rem;
+}
+canvas{display:block;width:100%;}
+.sim-controls{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:1.5rem;
+}
+.ctrl-group label{
+  font-family:'Space Mono',monospace;font-size:.75rem;
+  color:var(--muted);letter-spacing:1px;display:block;
+  margin-bottom:.5rem;
+}
+.ctrl-group .ctrl-val{
+  font-family:'Space Mono',monospace;
+  color:var(--cyan);font-size:1.1rem;font-weight:700;
+}
+input[type=range]{
+  width:100%;-webkit-appearance:none;
+  height:4px;border-radius:2px;
+  background:var(--border2);outline:none;cursor:pointer;
+  margin-top:.5rem;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:16px;height:16px;border-radius:50%;
+  background:var(--cyan);
+  box-shadow:0 0 8px rgba(0,212,255,.6);
+  cursor:pointer;
+}
+.sim-btn{
+  font-family:'Space Mono',monospace;font-size:.75rem;letter-spacing:1px;
+  padding:.6rem 1.5rem;border-radius:6px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,var(--cyan2),var(--green2));
+  color:#060a12;font-weight:700;
+  transition:opacity .2s;margin-top:1rem;
+}
+.sim-btn:hover{opacity:.85;}
+
+/* TABLA COMPONENTES */
+.table-wrap{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:12px;overflow:hidden;overflow-x:auto;
+  margin-bottom:3rem;
+}
+table{width:100%;border-collapse:collapse;}
+thead{background:var(--bg2);}
+th{
+  font-family:'Space Mono',monospace;font-size:.72rem;
+  letter-spacing:1px;color:var(--cyan);
+  padding:1rem 1.5rem;text-align:left;
+  border-bottom:1px solid var(--border);
+  text-transform:uppercase;
+}
+td{
+  padding:1rem 1.5rem;border-bottom:1px solid var(--border);
+  font-size:.9rem;color:var(--muted);
+  vertical-align:top;
+}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:rgba(255,255,255,.02);}
+td strong{color:var(--text);}
+.chip{
+  display:inline-block;font-size:.7rem;
+  font-family:'Space Mono',monospace;
+  padding:.2rem .6rem;border-radius:4px;
+  background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);
+  color:var(--cyan);white-space:nowrap;
+}
+
+/* UNIDADES */
+.units-wrap{display:flex;flex-direction:column;gap:0;}
+.unit{
+  position:relative;
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  margin-bottom:1.5rem;
+  transition:border-color .3s;
+}
+.unit:hover{border-color:var(--border2);}
+.unit-header{
+  display:flex;align-items:center;gap:1.5rem;
+  padding:1.5rem 2rem;
+  background:var(--card);
+  cursor:pointer;
+  user-select:none;
+}
+.unit-num{
+  font-family:'Space Mono',monospace;font-size:2rem;font-weight:700;
+  color:var(--border2);line-height:1;flex-shrink:0;
+  transition:color .3s;
+}
+.unit.open .unit-num{color:var(--cyan);}
+.unit-info h3{
+  font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;
+  margin-bottom:.25rem;
+}
+.unit-info .unit-sub{font-size:.85rem;color:var(--muted);}
+.unit-chevron{
+  margin-left:auto;color:var(--muted);font-size:1.2rem;
+  transition:transform .3s;flex-shrink:0;
+}
+.unit.open .unit-chevron{transform:rotate(180deg);}
+.unit-body{
+  display:none;
+  border-top:1px solid var(--border);
+}
+.unit.open .unit-body{display:block;}
+.unit-inner{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:0;
+}
+@media(max-width:768px){.unit-inner{grid-template-columns:1fr;}}
+.unit-topics{
+  padding:2rem;
+  border-right:1px solid var(--border);
+}
+@media(max-width:768px){.unit-topics{border-right:none;border-bottom:1px solid var(--border);}}
+.unit-topics h4{
+  font-family:'Space Mono',monospace;font-size:.72rem;
+  color:var(--green);letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:1rem;
+}
+.topic-list{list-style:none;}
+.topic-list li{
+  display:flex;align-items:flex-start;gap:.75rem;
+  padding:.5rem 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  font-size:.9rem;color:var(--muted);
+}
+.topic-list li:last-child{border-bottom:none;}
+.topic-list li::before{
+  content:'▸';color:var(--cyan);flex-shrink:0;margin-top:.1rem;
+}
+.unit-code-wrap{padding:2rem;}
+.unit-code-wrap h4{
+  font-family:'Space Mono',monospace;font-size:.72rem;
+  color:var(--amber);letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:.75rem;
+  display:flex;align-items:center;gap:.5rem;
+}
+.unit-code-wrap h4::before{content:'⚡';}
+.code-context{
+  font-size:.85rem;color:var(--muted);
+  margin-bottom:1rem;line-height:1.6;
+}
+.code-context strong{color:var(--text);}
+.code-block{
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+}
+.code-top-bar{
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:.5rem 1rem;
+  display:flex;align-items:center;gap:.5rem;
+}
+.dot{width:10px;height:10px;border-radius:50%;}
+.dot.r{background:#ff5f57;}
+.dot.y{background:#febc2e;}
+.dot.g{background:#28c840;}
+.code-lang{
+  margin-left:auto;
+  font-family:'Space Mono',monospace;font-size:.65rem;
+  color:var(--muted2);letter-spacing:1px;
+}
+.code-copy{
+  font-family:'Space Mono',monospace;font-size:.65rem;
+  color:var(--muted);letter-spacing:1px;
+  background:none;border:1px solid var(--border);
+  padding:.2rem .6rem;border-radius:4px;
+  cursor:pointer;transition:color .2s,border-color .2s;margin-left:.5rem;
+}
+.code-copy:hover{color:var(--cyan);border-color:rgba(0,212,255,.4);}
+pre{
+  padding:1.25rem;
+  font-family:'Space Mono',monospace;font-size:.78rem;
+  line-height:1.7;overflow-x:auto;
+  color:#c9d1d9;
+}
+/* Syntax colors */
+.kw{color:#ff7b72;}
+.fn{color:#d2a8ff;}
+.nm{color:#79c0ff;}
+.st{color:#a5d6ff;}
+.cm{color:#8b949e;font-style:italic;}
+.nb{color:#f0883e;}
+.op{color:#c9d1d9;}
+
+/* DIAGRAMA PID */
+.pid-diagram{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;padding:2.5rem;
+  margin-bottom:3rem;
+}
+.pid-diagram h3{
+  font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;
+  margin-bottom:.5rem;
+}
+.pid-diagram p{color:var(--muted);font-size:.9rem;margin-bottom:2rem;}
+
+/* SENSOR VISUALIZER */
+.sensor-viz{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+  margin-bottom:3rem;
+}
+.sv-header{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:1.25rem 2rem;
+  display:flex;align-items:center;gap:1rem;
+}
+.sv-header h3{font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;}
+.sv-body{padding:2rem;}
+.track-demo{
+  background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:1.5rem;
+  text-align:center;margin-bottom:1.5rem;
+  position:relative;overflow:hidden;
+}
+.sv-canvas-wrap canvas{display:block;width:100%;}
+.sv-info{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;
+}
+.sv-sensor{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:1rem;text-align:center;
+}
+.sv-sensor .s-label{
+  font-family:'Space Mono',monospace;font-size:.7rem;
+  color:var(--muted);letter-spacing:1px;margin-bottom:.5rem;
+}
+.sv-sensor .s-val{
+  font-family:'Space Mono',monospace;font-size:1.4rem;font-weight:700;
+  transition:color .2s;
+}
+.sv-sensor .s-bar{
+  height:6px;border-radius:3px;
+  background:var(--border);margin-top:.5rem;overflow:hidden;
+}
+.sv-sensor .s-fill{
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  transition:width .15s;
+}
+
+/* QUIZ */
+.quiz-wrap{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+  margin-bottom:3rem;
+}
+.quiz-header{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:1.5rem 2rem;
+}
+.quiz-header h3{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;}
+.quiz-progress{
+  height:3px;background:var(--border);
+  margin-top:1rem;border-radius:2px;overflow:hidden;
+}
+.quiz-prog-fill{
+  height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--cyan),var(--green));
+  transition:width .4s;
+}
+.quiz-body{padding:2rem;}
+.quiz-q{
+  font-size:1.05rem;font-weight:500;
+  margin-bottom:1.5rem;color:var(--text);
+}
+.quiz-opts{display:flex;flex-direction:column;gap:.75rem;}
+.quiz-opt{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;padding:1rem 1.25rem;
+  cursor:pointer;font-size:.9rem;color:var(--muted);
+  transition:border-color .2s,color .2s,background .2s;
+  display:flex;align-items:center;gap:.75rem;
+}
+.quiz-opt:hover{border-color:var(--border2);color:var(--text);}
+.quiz-opt.correct{
+  border-color:var(--green);background:rgba(0,255,157,.06);
+  color:var(--green);
+}
+.quiz-opt.wrong{
+  border-color:var(--red);background:rgba(255,71,87,.06);
+  color:var(--red);
+}
+.quiz-opt-letter{
+  font-family:'Space Mono',monospace;font-size:.8rem;font-weight:700;
+  width:28px;height:28px;border-radius:50%;
+  background:var(--border);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:background .2s;
+}
+.correct .quiz-opt-letter{background:var(--green);color:#060a12;}
+.wrong .quiz-opt-letter{background:var(--red);color:#fff;}
+.quiz-feedback{
+  margin-top:1.25rem;padding:1rem 1.25rem;
+  border-radius:8px;font-size:.9rem;display:none;
+}
+.quiz-feedback.show{display:block;}
+.quiz-feedback.ok{
+  background:rgba(0,255,157,.06);border:1px solid rgba(0,255,157,.25);
+  color:var(--green);
+}
+.quiz-feedback.err{
+  background:rgba(255,71,87,.06);border:1px solid rgba(255,71,87,.25);
+  color:var(--red);
+}
+.quiz-next{
+  margin-top:1.25rem;display:none;
+  font-family:'Space Mono',monospace;font-size:.75rem;letter-spacing:1px;
+  padding:.6rem 1.5rem;border-radius:6px;border:1px solid var(--cyan);
+  background:transparent;color:var(--cyan);cursor:pointer;
+  transition:background .2s,color .2s;
+}
+.quiz-next.show{display:inline-block;}
+.quiz-next:hover{background:rgba(0,212,255,.1);}
+.quiz-score{
+  display:none;text-align:center;padding:2rem;
+}
+.quiz-score.show{display:block;}
+.score-num{
+  font-family:'Syne',sans-serif;font-size:4rem;font-weight:800;
+  background:linear-gradient(135deg,var(--cyan),var(--green));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.score-label{font-size:1.1rem;color:var(--muted);margin-bottom:1.5rem;}
+
+/* GLOSARIO */
+.glossary-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+  gap:1rem;
+}
+.gloss-item{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:1.25rem;
+  transition:border-color .2s;
+}
+.gloss-item:hover{border-color:var(--border2);}
+.gloss-term{
+  font-family:'Space Mono',monospace;font-size:.85rem;font-weight:700;
+  color:var(--cyan);margin-bottom:.5rem;
+}
+.gloss-def{font-size:.875rem;color:var(--muted);}
+
+/* FOOTER */
+footer{
+  border-top:1px solid var(--border);
+  background:var(--bg2);
+  text-align:center;
+  padding:3rem 2rem;
+}
+.footer-logo{
+  font-family:'Space Mono',monospace;font-size:1.1rem;
+  color:var(--cyan);margin-bottom:.75rem;letter-spacing:2px;
+}
+footer p{color:var(--muted2);font-size:.85rem;}
+footer span{color:var(--cyan);}
+
+/* MOBILE */
+@media(max-width:768px){
+  .nav-links{display:none;}
+  .hero h1{font-size:2.4rem;}
+  .section{padding:3rem 1.25rem;}
+  .sim-controls{grid-template-columns:1fr;}
+}
+
+/* TOOLTIP */
+[data-tip]{position:relative;cursor:help;}
+[data-tip]:hover::after{
+  content:attr(data-tip);
+  position:absolute;bottom:120%;left:50%;
+  transform:translateX(-50%);
+  background:#1e2f48;border:1px solid var(--border2);
+  color:var(--text);font-size:.75rem;
+  padding:.4rem .75rem;border-radius:6px;
+  white-space:nowrap;z-index:100;pointer-events:none;
+  font-family:'DM Sans',sans-serif;font-weight:400;
+}
+
+/* SCROLL REVEAL */
+.reveal{opacity:0;transform:translateY(30px);transition:opacity .6s,transform .6s;}
+.reveal.visible{opacity:1;transform:none;}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">Robotics<em>PID</em></div>
+    <ul class="nav-links">
+      <li><a href="#fundamentos">Fundamentos</a></li>
+      <li><a href="#componentes">Hardware</a></li>
+      <li><a href="#unidades">Unidades</a></li>
+      <li><a href="#simulador">Simulador</a></li>
+      <li><a href="#quiz">Quiz</a></li>
+    </ul>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="prog"></div></div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="hero-label">Memoria de Estadía · TSU Robótica · UTVCO 2026</div>
+    <h1>
+      <span class="line1">Programación Avanzada</span>
+      <span class="line2">Control PID · ESP32</span>
+    </h1>
+    <p class="hero-desc">Diseño curricular completo para la construcción y programación de un robot seguidor de línea con lazo de control cerrado, desde los fundamentos hasta la sintonización avanzada.</p>
+    <div class="hero-badges">
+      <span class="badge c">ESP32 DevKit v1</span>
+      <span class="badge g">Python · MicroPython</span>
+      <span class="badge a">4 Unidades</span>
+      <span class="badge">Control PID</span>
+      <span class="badge">Sensores IR</span>
+      <span class="badge">Puente H L298N</span>
+    </div>
+    <a href="#fundamentos" class="hero-cta">▶ Comenzar Curso</a>
+
+    <!-- Robot SVG animado -->
+    <div class="robot-visual">
+      <svg viewBox="0 0 700 220" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+        <defs>
+          <linearGradient id="rg1" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#00d4ff" stop-opacity=".15"/>
+            <stop offset="100%" stop-color="#00ff9d" stop-opacity=".05"/>
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- Track / Pista -->
+        <rect x="0" y="160" width="700" height="40" rx="4" fill="#0d1424"/>
+        <rect x="0" y="165" width="700" height="30" rx="3" fill="#0a1020"/>
+        <!-- Línea negra de la pista -->
+        <path id="trackLine" d="M 0 180 Q 100 150 200 180 Q 350 210 500 175 Q 600 155 700 180" stroke="#fff" stroke-width="18" fill="none" opacity=".12"/>
+        <!-- Chasis robot -->
+        <g filter="url(#glow)">
+          <rect x="260" y="100" width="180" height="60" rx="10" fill="url(#rg1)" stroke="#1e2f48" stroke-width="1.5"/>
+          <!-- Ruedas -->
+          <rect x="258" y="108" width="14" height="28" rx="4" fill="#0d1424" stroke="#243550" stroke-width="1.5"/>
+          <rect x="258" y="124" width="14" height="12" rx="2" fill="#00d4ff" opacity=".4"/>
+          <rect x="428" y="108" width="14" height="28" rx="4" fill="#0d1424" stroke="#243550" stroke-width="1.5"/>
+          <rect x="428" y="124" width="14" height="12" rx="2" fill="#00d4ff" opacity=".4"/>
+          <!-- ESP32 chip -->
+          <rect x="305" y="112" width="50" height="30" rx="4" fill="#111827" stroke="#243550" stroke-width="1"/>
+          <text x="330" y="131" text-anchor="middle" fill="#00d4ff" font-size="7" font-family="Space Mono">ESP32</text>
+          <!-- LED indicadores -->
+          <circle cx="370" cy="118" r="3" fill="#00ff9d"><animate attributeName="opacity" values="1;0.2;1" dur="1.2s" repeatCount="indefinite"/></circle>
+          <circle cx="378" cy="118" r="3" fill="#00d4ff"><animate attributeName="opacity" values="0.2;1;0.2" dur="1.5s" repeatCount="indefinite"/></circle>
+          <!-- Sensores IR abajo -->
+          <rect x="290" y="158" width="12" height="8" rx="2" fill="#0d1424" stroke="#243550" stroke-width="1"/>
+          <rect x="344" y="158" width="12" height="8" rx="2" fill="#0d1424" stroke="#243550" stroke-width="1"/>
+          <rect x="398" y="158" width="12" height="8" rx="2" fill="#0d1424" stroke="#243550" stroke-width="1"/>
+          <!-- Haces IR -->
+          <line x1="296" y1="166" x2="296" y2="178" stroke="#ff4" stroke-width="1.5" stroke-dasharray="2,2" opacity=".5"><animate attributeName="opacity" values=".5;.1;.5" dur=".8s" repeatCount="indefinite"/></line>
+          <line x1="350" y1="166" x2="350" y2="178" stroke="#ff4" stroke-width="1.5" stroke-dasharray="2,2" opacity=".5"><animate attributeName="opacity" values=".5;.1;.5" dur=".9s" repeatCount="indefinite"/></line>
+          <line x1="404" y1="166" x2="404" y2="178" stroke="#ff4" stroke-width="1.5" stroke-dasharray="2,2" opacity=".5"><animate attributeName="opacity" values=".5;.1;.5" dur=".7s" repeatCount="indefinite"/></line>
+        </g>
+        <!-- Labels -->
+        <text x="350" y="92" text-anchor="middle" fill="#6b8cbe" font-size="9" font-family="Space Mono">ROBOT SEGUIDOR DE LÍNEA</text>
+        <text x="296" y="195" text-anchor="middle" fill="#ffb830" font-size="7" font-family="Space Mono">S1</text>
+        <text x="350" y="195" text-anchor="middle" fill="#ffb830" font-size="7" font-family="Space Mono">S2</text>
+        <text x="404" y="195" text-anchor="middle" fill="#ffb830" font-size="7" font-family="Space Mono">S3</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- STATS STRIP -->
+<div class="section" style="padding-top:3rem;padding-bottom:3rem;">
+  <div class="info-strip reveal">
+    <div class="info-item">
+      <span class="info-num">4</span>
+      <div class="info-label">Unidades Modulares</div>
+    </div>
+    <div class="info-item">
+      <span class="info-num">100Hz</span>
+      <div class="info-label">Frecuencia de Control</div>
+    </div>
+    <div class="info-item">
+      <span class="info-num">12bit</span>
+      <div class="info-label">Resolución ADC</div>
+    </div>
+    <div class="info-item">
+      <span class="info-num">PD</span>
+      <div class="info-label">Algoritmo de Control</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- FUNDAMENTOS -->
+<div class="section" id="fundamentos">
+  <div class="section-tag">01 · Fundamentos</div>
+  <h2 class="section-title">¿Qué es un Seguidor de Línea?</h2>
+  <p class="section-desc">Un robot seguidor de línea es un sistema autónomo que detecta y sigue un camino marcado (usualmente una línea negra sobre fondo blanco) usando sensores ópticos. El control PID hace que lo siga con precisión y fluidez.</p>
+
+  <div class="concept-grid reveal">
+    <div class="concept-card">
+      <div class="cc-icon">👁️</div>
+      <h3>Sensores Reflectivos IR</h3>
+      <p>Emiten luz infrarroja y miden cuánta rebota. El negro absorbe la luz (señal baja), el blanco la refleja (señal alta). Esta diferencia de voltaje es el "ojo" del robot.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">⚡</div>
+      <h3>Control On/Off vs PID</h3>
+      <p>Un control simple dice "gira izquierda o derecha". El PID calcula <em>cuánto</em> girar en función del error actual, la velocidad de cambio y la acumulación histórica. El resultado es movimiento fluido sin zigzagueo.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">🔄</div>
+      <h3>Lazo Cerrado (Feedback)</h3>
+      <p>El robot mide continuamente su posición relativa a la línea, calcula el error, ajusta los motores y vuelve a medir. Este ciclo se repite 100 veces por segundo.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">📐</div>
+      <h3>PWM — Control de Velocidad</h3>
+      <p>La velocidad de un motor DC se controla con Modulación por Ancho de Pulso (PWM): una señal digital que varía su ciclo de trabajo del 0% (parado) al 100% (máxima velocidad).</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">🧮</div>
+      <h3>Promedio Ponderado</h3>
+      <p>Con 3+ sensores, la posición de la línea se calcula como una media ponderada: sensores extremos tienen mayor peso. Si la línea está a la derecha, el valor numérico sube.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">🎛️</div>
+      <h3>Sintonización Kp / Kd</h3>
+      <p><strong>Kp</strong> determina cuánto reacciona el robot al error actual. <strong>Kd</strong> amortigua las oscilaciones. Encontrar los valores correctos es el arte del control PID.</p>
+    </div>
+  </div>
+
+  <!-- Diagrama PID visual -->
+  <div class="pid-diagram reveal" style="margin-top:3rem;">
+    <h3>Diagrama del Sistema en Lazo Cerrado</h3>
+    <p>Flujo de datos desde los sensores hasta los motores, pasando por el algoritmo PID.</p>
+    <svg viewBox="0 0 760 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;max-height:140px;">
+      <defs>
+        <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#4a6a9a"/>
+        </marker>
+        <marker id="arrc" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#00d4ff"/>
+        </marker>
+      </defs>
+      <!-- Bloques -->
+      <rect x="10" y="40" width="100" height="40" rx="6" fill="#131e30" stroke="#1e2f48" stroke-width="1.5"/>
+      <text x="60" y="56" text-anchor="middle" fill="#00d4ff" font-size="8" font-family="Space Mono">SENSORES</text>
+      <text x="60" y="70" text-anchor="middle" fill="#6b8cbe" font-size="7" font-family="Space Mono">IR · ADC 12bit</text>
+
+      <rect x="155" y="40" width="100" height="40" rx="6" fill="#131e30" stroke="#1e2f48" stroke-width="1.5"/>
+      <text x="205" y="56" text-anchor="middle" fill="#ffb830" font-size="8" font-family="Space Mono">PROMEDIO</text>
+      <text x="205" y="70" text-anchor="middle" fill="#6b8cbe" font-size="7" font-family="Space Mono">PONDERADO</text>
+
+      <rect x="300" y="40" width="100" height="40" rx="6" fill="#131e30" stroke="#243550" stroke-width="2"/>
+      <text x="350" y="56" text-anchor="middle" fill="#00ff9d" font-size="9" font-family="Space Mono" font-weight="bold">PID</text>
+      <text x="350" y="70" text-anchor="middle" fill="#6b8cbe" font-size="7" font-family="Space Mono">Kp · Kd</text>
+
+      <rect x="445" y="40" width="100" height="40" rx="6" fill="#131e30" stroke="#1e2f48" stroke-width="1.5"/>
+      <text x="495" y="56" text-anchor="middle" fill="#a855f7" font-size="8" font-family="Space Mono">PUENTE H</text>
+      <text x="495" y="70" text-anchor="middle" fill="#6b8cbe" font-size="7" font-family="Space Mono">L298N · PWM</text>
+
+      <rect x="590" y="40" width="100" height="40" rx="6" fill="#131e30" stroke="#1e2f48" stroke-width="1.5"/>
+      <text x="640" y="56" text-anchor="middle" fill="#ff7b72" font-size="8" font-family="Space Mono">MOTORES</text>
+      <text x="640" y="70" text-anchor="middle" fill="#6b8cbe" font-size="7" font-family="Space Mono">DC · 1:48</text>
+
+      <!-- Flechas adelante -->
+      <line x1="110" y1="60" x2="153" y2="60" stroke="#4a6a9a" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="255" y1="60" x2="298" y2="60" stroke="#4a6a9a" stroke-width="1.5" marker-end="url(#arr)"/>
+      <line x1="400" y1="60" x2="443" y2="60" stroke="#00d4ff" stroke-width="2" marker-end="url(#arrc)"/>
+      <line x1="545" y1="60" x2="588" y2="60" stroke="#4a6a9a" stroke-width="1.5" marker-end="url(#arr)"/>
+
+      <!-- Flecha feedback inferior -->
+      <path d="M 640 80 L 640 105 L 60 105 L 60 82" stroke="#1e2f48" stroke-width="1.5" fill="none" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+      <text x="350" y="116" text-anchor="middle" fill="#4a6a9a" font-size="7" font-family="Space Mono">RETROALIMENTACIÓN — LAZO CERRADO</text>
+    </svg>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- COMPONENTES -->
+<div class="section" id="componentes">
+  <div class="section-tag">02 · Hardware</div>
+  <h2 class="section-title">Componentes del Laboratorio</h2>
+  <p class="section-desc">Todos los componentes fueron seleccionados para balancear costo, disponibilidad y capacidad técnica suficiente para implementar control PID real.</p>
+
+  <div class="table-wrap reveal">
+    <table>
+      <thead>
+        <tr>
+          <th>Componente</th>
+          <th>Función en el Sistema</th>
+          <th>Especificación Clave</th>
+          <th>Por qué este</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>ESP32 DevKit v1</strong></td>
+          <td>Cerebro del robot. Ejecuta el algoritmo PID en lazo cerrado.</td>
+          <td><span class="chip">32-bit Xtensa</span> <span class="chip">ADC 12-bit</span> <span class="chip">LEDC PWM</span></td>
+          <td>240 MHz, WiFi/BT para telemetría futura, ADC real de 12 bits (4096 niveles).</td>
+        </tr>
+        <tr>
+          <td><strong>Arreglo de Sensores IR</strong></td>
+          <td>Detecta la posición relativa de la línea. Emite señal analógica 0–3.3V.</td>
+          <td><span class="chip">Salida analógica</span> <span class="chip">0–3.3V</span></td>
+          <td>La salida analógica permite calcular el promedio ponderado, imposible con sensores digitales.</td>
+        </tr>
+        <tr>
+          <td><strong>Driver L298N (Puente H)</strong></td>
+          <td>Interfaz de potencia entre la ESP32 (3.3V lógica) y los motores (7-12V).</td>
+          <td><span class="chip">2A por canal</span> <span class="chip">PWM nativo</span></td>
+          <td>Soporta 2 canales PWM independientes; esencial para la mezcla diferencial de velocidades.</td>
+        </tr>
+        <tr>
+          <td><strong>2× Motorreductores DC</strong></td>
+          <td>Actuadores de tracción que propulsan el chasis.</td>
+          <td><span class="chip">1:48 reducción</span> <span class="chip">3–6V</span></td>
+          <td>Alta relación de reducción = mayor torque y menor velocidad base, fácil de controlar con PID.</td>
+        </tr>
+        <tr>
+          <td><strong>Baterías 18650 Li-ion</strong></td>
+          <td>Fuente de energía independiente para lógica y potencia.</td>
+          <td><span class="chip">3.7V nominal</span> <span class="chip">Alta descarga</span></td>
+          <td>Alta densidad energética y capacidad de descarga sostenida bajo carga de motores.</td>
+        </tr>
+        <tr>
+          <td><strong>Chasis PLA impreso en 3D</strong></td>
+          <td>Estructura mecánica que une todos los componentes.</td>
+          <td><span class="chip">Material PLA</span> <span class="chip">Bajo peso</span></td>
+          <td>Ligero, personalizable y reproducible con cualquier impresora FDM económica.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Sensor Visualizer Interactivo -->
+  <div class="sensor-viz reveal">
+    <div class="sv-header">
+      <span style="font-size:1.3rem">🔦</span>
+      <h3>Simulador de Sensores IR</h3>
+      <span class="sim-badge">INTERACTIVO</span>
+    </div>
+    <div class="sv-body">
+      <p style="color:var(--muted);font-size:.9rem;margin-bottom:1.5rem;">Arrastra la línea negra para ver cómo cambian las lecturas de los 3 sensores y el error calculado.</p>
+      <div class="track-demo">
+        <canvas id="sensorCanvas" height="100"></canvas>
+      </div>
+      <div class="sv-info">
+        <div class="sv-sensor">
+          <div class="s-label">SENSOR IZQ (A6)</div>
+          <div class="s-val" id="sv1">0</div>
+          <div class="s-bar"><div class="s-fill" id="sf1" style="width:0%"></div></div>
+        </div>
+        <div class="sv-sensor">
+          <div class="s-label">SENSOR CENT (A7)</div>
+          <div class="s-val" id="sv2">0</div>
+          <div class="s-bar"><div class="s-fill" id="sf2" style="width:0%"></div></div>
+        </div>
+        <div class="sv-sensor">
+          <div class="s-label">SENSOR DER (A4)</div>
+          <div class="s-val" id="sv3">0</div>
+          <div class="s-bar"><div class="s-fill" id="sf3" style="width:0%"></div></div>
+        </div>
+      </div>
+      <div style="margin-top:1.25rem;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <span style="font-family:'Space Mono',monospace;font-size:.75rem;color:var(--muted);letter-spacing:1px;">ERROR CALCULADO:</span>
+        <span id="errorDisplay" style="font-family:'Space Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--cyan);">0</span>
+        <span style="font-size:.8rem;color:var(--muted2)">(−2000 = línea muy a la izquierda · 0 = centrado · +2000 = muy a la derecha)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- UNIDADES -->
+<div class="section" id="unidades">
+  <div class="section-tag">03 · Programa</div>
+  <h2 class="section-title">Estructura Modular del Curso</h2>
+  <p class="section-desc">Cuatro unidades teórico-prácticas secuenciales. Haz clic en cada unidad para expandir el contenido y ver el código de ejemplo.</p>
+
+  <div class="units-wrap reveal">
+    <!-- Unidad I -->
+    <div class="unit open" id="u1">
+      <div class="unit-header" role="button" aria-expanded="true" aria-controls="u1-body" onclick="toggleUnit('u1')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleUnit('u1')">
+        <div class="unit-num">01</div>
+        <div class="unit-info">
+          <h3>Sistemas Embebidos de Alta Velocidad</h3>
+          <div class="unit-sub">Arquitectura ESP32 · Temporización no bloqueante · Loop de control</div>        </div>
+        <div class="unit-chevron">▾</div>
+      </div>
+      <div class="unit-body">
+        <div class="unit-inner">
+          <div class="unit-topics">
+            <h4>Temas de la Unidad</h4>
+            <ul class="topic-list">
+              <li>Arquitectura Xtensa LX6 dual-core de 240 MHz</li>
+              <li>Diferencias entre Arduino UNO (8-bit) y ESP32 (32-bit)</li>
+              <li>Configuración del entorno Thonny IDE + firmware MicroPython para ESP32</li>
+              <li>Temporización precisa con <code style="color:var(--cyan)">ticks_us()</code> vs <code style="color:var(--red)">time.sleep()</code></li>
+              <li>El concepto de <em>dt</em> constante para el cálculo derivativo</li>
+              <li>Frecuencia de muestreo óptima: 100 Hz (cada 10 ms)</li>
+              <li>Estructura del bucle de control: leer → calcular → actuar</li>
+            </ul>
+          </div>
+          <div class="unit-code-wrap">
+            <h4>CASO PRÁCTICO — Temporización No Bloqueante</h4>
+            <p class="code-context">El cálculo derivativo del PID requiere un <strong>dt constante</strong>. <code style="color:var(--red)">time.sleep()</code> bloquea el CPU y hace el dt impredecible. La solución: comparar timestamps con <strong>ticks_us()</strong> de MicroPython.</p>
+            <div class="code-block">
+              <div class="code-top-bar">
+                <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+                <span class="code-lang">Python · MicroPython</span>
+                <button class="code-copy" onclick="copyCode(this)">COPIAR</button>
+              </div>
+              <pre><span class="cm"># ✅ CORRECTO: Temporización precisa con ticks_us()</span>
+<span class="kw">from</span> machine <span class="kw">import</span> <span class="fn">ticks_us</span>, <span class="fn">ticks_diff</span>
+
+tiempo_anterior = <span class="fn">ticks_us</span>()
+DT = <span class="nb">10000</span>  <span class="cm"># 10ms = 100Hz de control</span>
+
+<span class="kw">while</span> <span class="nb">True</span>:
+    ahora = <span class="fn">ticks_us</span>()
+
+    <span class="kw">if</span> <span class="fn">ticks_diff</span>(ahora, tiempo_anterior) >= DT:
+        tiempo_anterior = ahora  <span class="cm"># Guardar timestamp</span>
+
+        <span class="cm"># ↓ Bucle crítico — se ejecuta exactamente cada 10ms</span>
+        <span class="fn">leer_sensores</span>()
+        <span class="fn">calcular_pid</span>()
+        <span class="fn">actualizar_motores</span>()
+
+    <span class="cm"># Otras tareas secundarias sin bloquear</span>
+
+<span class="cm"># ❌ INCORRECTO — time.sleep() congela el CPU</span>
+<span class="cm"># while True: time.sleep(0.01); calcular_pid()</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unidad II -->
+    <div class="unit" id="u2">
+      <div class="unit-header" role="button" aria-expanded="false" aria-controls="u2-body" onclick="toggleUnit('u2')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleUnit('u2')">
+        <div class="unit-num">02</div>
+        <div class="unit-info">
+          <h3>Electrónica de Potencia y Actuadores</h3>
+          <div class="unit-sub">Puente H L298N · PWM periférico LEDC · Control diferencial</div>
+        </div>
+        <div class="unit-chevron">▾</div>
+      </div>
+      <div class="unit-body">
+        <div class="unit-inner">
+          <div class="unit-topics">
+            <h4>Temas de la Unidad</h4>
+            <ul class="topic-list">
+              <li>Estructura interna del Puente H: 4 transistores en H</li>
+              <li>Estados lógicos: adelante, atrás, freno, libre</li>
+              <li>Por qué <code style="color:var(--red)">analogWrite()</code> no existe en ESP32 con MicroPython</li>
+              <li>La clase <code style="color:var(--cyan)">PWM</code> de <code style="color:var(--cyan)">machine</code>: frecuencia y duty configurables</li>
+              <li>Elección de frecuencia PWM: 5kHz evita ruido audible</li>
+              <li>Resolución de 10 bits en MicroPython: 0–1023 niveles de velocidad</li>
+              <li>Mezcla diferencial: velocidades asimétricas para curvas</li>
+            </ul>
+          </div>
+          <div class="unit-code-wrap">
+            <h4>CASO PRÁCTICO — PWM con LEDC</h4>
+            <p class="code-context">La ESP32 soporta PWM en MicroPython con la clase <strong>PWM</strong> de <code style="color:var(--cyan)">machine</code>. Basta con crear un objeto PWM por pin — el hardware gestiona los canales automáticamente.</p>
+            <div class="code-block">
+              <div class="code-top-bar">
+                <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+                <span class="code-lang">Python · MicroPython</span>
+                <button class="code-copy" onclick="copyCode(this)">COPIAR</button>
+              </div>
+              <pre><span class="cm"># Configuración PWM en MicroPython (ESP32)</span>
+<span class="kw">from</span> machine <span class="kw">import</span> <span class="fn">Pin</span>, <span class="fn">PWM</span>
+
+PIN_ENA = <span class="nb">12</span>  <span class="cm"># ENA del L298N — Motor Izquierdo</span>
+PIN_ENB = <span class="nb">13</span>  <span class="cm"># ENB del L298N — Motor Derecho</span>
+FREC_PWM = <span class="nb">5000</span>  <span class="cm"># 5kHz — sin ruido audible</span>
+
+<span class="cm"># Crear objetos PWM — MicroPython gestiona los canales automáticamente</span>
+motor_izq = <span class="fn">PWM</span>(<span class="fn">Pin</span>(PIN_ENA), freq=FREC_PWM, duty=<span class="nb">0</span>)
+motor_der = <span class="fn">PWM</span>(<span class="fn">Pin</span>(PIN_ENB), freq=FREC_PWM, duty=<span class="nb">0</span>)
+
+<span class="kw">def</span> <span class="fn">set_motores</span>(izq, der):
+    <span class="cm"># duty acepta 0..1023 en MicroPython (10 bits)</span>
+    izq = <span class="fn">max</span>(<span class="nb">0</span>, <span class="fn">min</span>(<span class="nb">1023</span>, izq * <span class="nb">4</span>))  <span class="cm"># escalar de 0-255 a 0-1023</span>
+    der = <span class="fn">max</span>(<span class="nb">0</span>, <span class="fn">min</span>(<span class="nb">1023</span>, der * <span class="nb">4</span>))
+    motor_izq.<span class="fn">duty</span>(izq)
+    motor_der.<span class="fn">duty</span>(der)</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unidad III -->
+    <div class="unit" id="u3">
+      <div class="unit-header" role="button" aria-expanded="false" aria-controls="u3-body" onclick="toggleUnit('u3')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleUnit('u3')">
+        <div class="unit-num">03</div>
+        <div class="unit-info">
+          <h3>Adquisición de Datos e Inferencia Posicional</h3>
+          <div class="unit-sub">Sensores IR · ADC 12-bit · Promedio ponderado</div>
+        </div>
+        <div class="unit-chevron">▾</div>
+      </div>
+      <div class="unit-body">
+        <div class="unit-inner">
+          <div class="unit-topics">
+            <h4>Temas de la Unidad</h4>
+            <ul class="topic-list">
+              <li>Principio físico del sensor reflectivo: ley de Lambert-Beer</li>
+              <li>Atenuación de la señal ADC: limitación a 3.1V (no 3.3V)</li>
+              <li>GPIO válidos para ADC en ESP32: 32, 33, 34, 35, 36, 39</li>
+              <li>Ruido en la señal ADC y técnicas de filtrado</li>
+              <li>Asignación de pesos geométricos a cada sensor</li>
+              <li>Fórmula del promedio ponderado: Σ(lectura × peso) / Σlecturas</li>
+              <li>Protección contra división por cero (robot fuera de pista)</li>
+            </ul>
+          </div>
+          <div class="unit-code-wrap">
+            <h4>CASO PRÁCTICO — Promedio Ponderado</h4>
+            <p class="code-context">Asignamos pesos <strong>-2000, 0, +2000</strong> a los sensores izquierdo, central y derecho. Si la línea se va a la derecha, el valor resultante aumenta positivamente.</p>
+            <div class="code-block">
+              <div class="code-top-bar">
+                <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+                <span class="code-lang">Python · MicroPython</span>
+                <button class="code-copy" onclick="copyCode(this)">COPIAR</button>
+              </div>
+              <pre><span class="cm"># Pines ADC válidos en ESP32 para los sensores</span>
+<span class="kw">from</span> machine <span class="kw">import</span> <span class="fn">ADC</span>, <span class="fn">Pin</span>
+
+PINES = [<span class="nb">34</span>, <span class="nb">35</span>, <span class="nb">32</span>]   <span class="cm"># Izq, Centro, Der</span>
+PESOS = [<span class="nb">-2000</span>, <span class="nb">0</span>, <span class="nb">2000</span>]  <span class="cm"># Ponderación geométrica</span>
+
+<span class="cm"># Inicializar ADCs con atenuación de 11dB (rango 0–3.3V)</span>
+sensores = [<span class="fn">ADC</span>(<span class="fn">Pin</span>(p)) <span class="kw">for</span> p <span class="kw">in</span> PINES]
+<span class="kw">for</span> s <span class="kw">in</span> sensores:
+    s.<span class="fn">atten</span>(ADC.ATTN_11DB)  <span class="cm"># 0..4095 (12-bit)</span>
+
+<span class="kw">def</span> <span class="fn">obtener_error</span>():
+    suma_pond  = <span class="nb">0</span>
+    suma_total = <span class="nb">0</span>
+
+    <span class="kw">for</span> sensor, peso <span class="kw">in</span> <span class="fn">zip</span>(sensores, PESOS):
+        val = sensor.<span class="fn">read</span>()  <span class="cm"># 0..4095 (12-bit)</span>
+        suma_pond  += val * peso
+        suma_total += val
+
+    <span class="cm"># Protección: si no hay línea visible → sin corrección</span>
+    <span class="kw">if</span> suma_total == <span class="nb">0</span>:
+        <span class="kw">return</span> <span class="nb">0</span>
+
+    <span class="kw">return</span> suma_pond // suma_total
+    <span class="cm"># Retorna: -2000 (muy izq) ... 0 (centrado) ... +2000 (muy der)</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Unidad IV -->
+    <div class="unit" id="u4">
+      <div class="unit-header" role="button" aria-expanded="false" aria-controls="u4-body" onclick="toggleUnit('u4')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' ')toggleUnit('u4')">
+        <div class="unit-num">04</div>
+        <div class="unit-info">
+          <h3>Control en Lazo Cerrado PID</h3>
+          <div class="unit-sub">Algoritmo PD · Sintonización Kp/Kd · Mezcla diferencial</div>
+        </div>
+        <div class="unit-chevron">▾</div>
+      </div>
+      <div class="unit-body">
+        <div class="unit-inner">
+          <div class="unit-topics">
+            <h4>Temas de la Unidad</h4>
+            <ul class="topic-list">
+              <li>Ecuación del controlador PID en tiempo discreto</li>
+              <li>Término Proporcional (P): reacción instantánea al error</li>
+              <li>Término Derivativo (D): amortiguación de oscilaciones</li>
+              <li>Término Integral (I): corrección de error estacionario</li>
+              <li>Por qué un controlador PD suele ser suficiente para seguir línea</li>
+              <li>Método de sintonización de Ziegler-Nichols simplificado</li>
+              <li>Mezcla diferencial: velocidadBase ± corrección</li>
+              <li>Restricción de rango con <code style="color:var(--cyan)">max(0, min(255, val))</code></li>
+            </ul>
+          </div>
+          <div class="unit-code-wrap">
+            <h4>CASO PRÁCTICO — Algoritmo PD Completo</h4>
+            <p class="code-context">Implementación completa del controlador PD. La <strong>corrección</strong> se suma a un motor y se resta al otro, generando la diferencia de velocidad que orienta el robot.</p>
+            <div class="code-block">
+              <div class="code-top-bar">
+                <div class="dot r"></div><div class="dot y"></div><div class="dot g"></div>
+                <span class="code-lang">Python · MicroPython</span>
+                <button class="code-copy" onclick="copyCode(this)">COPIAR</button>
+              </div>
+              <pre><span class="cm"># Parámetros del controlador PD</span>
+Kp = <span class="nb">1.6</span>    <span class="cm"># Ganancia proporcional</span>
+Kd = <span class="nb">0.4</span>    <span class="cm"># Ganancia derivativa</span>
+BASE = <span class="nb">140</span>  <span class="cm"># Velocidad de crucero en rectas</span>
+error_ant = <span class="nb">0</span>  <span class="cm"># Memoria del ciclo anterior</span>
+
+<span class="kw">def</span> <span class="fn">calcular_pd</span>():
+    <span class="kw">global</span> error_ant
+
+    error = <span class="fn">obtener_error</span>()  <span class="cm"># De la Unidad III</span>
+
+    <span class="cm"># Términos del controlador</span>
+    P = Kp * error
+    D = Kd * (error - error_ant)
+    correccion = P + D
+    error_ant = error  <span class="cm"># Guardar para el próximo ciclo</span>
+
+    <span class="cm"># Mezcla diferencial de potencia</span>
+    motor_izq = BASE + correccion  <span class="cm"># Error (+) → aceleran izq</span>
+    motor_der = BASE - correccion  <span class="cm"># Error (+) → frenan der</span>
+
+    <span class="cm"># Limitar al rango válido del PWM (0–255)</span>
+    motor_izq = <span class="fn">max</span>(<span class="nb">0</span>, <span class="fn">min</span>(<span class="nb">255</span>, <span class="fn">int</span>(motor_izq)))
+    motor_der = <span class="fn">max</span>(<span class="nb">0</span>, <span class="fn">min</span>(<span class="nb">255</span>, <span class="fn">int</span>(motor_der)))
+
+    <span class="fn">set_motores</span>(motor_izq, motor_der)  <span class="cm"># De la Unidad II</span></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- SIMULADOR PID -->
+<div class="section" id="simulador">
+  <div class="section-tag">04 · Simulador</div>
+  <h2 class="section-title">Simulador Interactivo PID</h2>
+  <p class="section-desc">Ajusta los valores de Kp y Kd y observa en tiempo real cómo responde el robot a una perturbación. El robot intenta volver al centro (error = 0).</p>
+
+  <div class="simulator reveal">
+    <div class="sim-header">
+      <h3>Respuesta del Controlador PD en el Tiempo</h3>
+      <span class="sim-badge">INTERACTIVO</span>
+    </div>
+    <div class="sim-body">
+      <div class="sim-canvas-wrap">
+        <canvas id="pidCanvas" height="200"></canvas>
+      </div>
+      <div class="sim-controls">
+        <div class="ctrl-group">
+          <label>Kp (Proporcional) — <span class="ctrl-val" id="kpVal">1.6</span></label>
+          <input type="range" id="kpSlider" min="0" max="5" step="0.1" value="1.6">
+        </div>
+        <div class="ctrl-group">
+          <label>Kd (Derivativo) — <span class="ctrl-val" id="kdVal">0.4</span></label>
+          <input type="range" id="kdSlider" min="0" max="3" step="0.05" value="0.4">
+        </div>
+        <div class="ctrl-group">
+          <label>Velocidad Base — <span class="ctrl-val" id="baseVal">140</span></label>
+          <input type="range" id="baseSlider" min="50" max="255" step="5" value="140">
+        </div>
+      </div>
+      <button class="sim-btn" onclick="perturbPID()">⚡ Simular Perturbación</button>
+    </div>
+  </div>
+
+  <!-- Tabla de sintonización -->
+  <div class="concept-grid reveal" style="margin-top:0">
+    <div class="concept-card">
+      <div class="cc-icon">📈</div>
+      <h3>Kp muy alto</h3>
+      <p>El robot reacciona exageradamente. Oscila de lado a lado con amplitud creciente. Se sale de la pista. Síntoma: zigzag incontrolable.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">🐌</div>
+      <h3>Kp muy bajo</h3>
+      <p>El robot reacciona lentamente. Se desvía de la línea sin corregir a tiempo, especialmente en curvas cerradas. Síntoma: pierde la pista en curvas.</p>
+    </div>
+    <div class="concept-card">
+      <div class="cc-icon">🎯</div>
+      <h3>Kd correcto</h3>
+      <p>Amortigua las oscilaciones de Kp. El robot se estabiliza rápidamente al centro. Un Kd excesivo produce movimiento rígido y lento.</p>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- QUIZ -->
+<div class="section" id="quiz">
+  <div class="section-tag">05 · Evaluación</div>
+  <h2 class="section-title">Quiz de Comprensión</h2>
+  <p class="section-desc">Pon a prueba lo aprendido. 6 preguntas sobre los conceptos clave del curso.</p>
+
+  <div class="quiz-wrap reveal">
+    <div class="quiz-header">
+      <h3>Evaluación Final — Control PID para Seguidor de Línea</h3>
+      <div class="quiz-progress"><div class="quiz-prog-fill" id="qProg" style="width:0%"></div></div>
+    </div>
+    <div class="quiz-body" id="quizBody"></div>
+    <div class="quiz-score" id="quizScore">
+      <div class="score-num" id="scoreNum">0/6</div>
+      <div class="score-label" id="scoreLabel">—</div>
+      <button class="sim-btn" onclick="resetQuiz()">↺ Intentar de Nuevo</button>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- GLOSARIO -->
+<div class="section" id="glosario">
+  <div class="section-tag">06 · Referencia</div>
+  <h2 class="section-title">Glosario Técnico</h2>
+  <p class="section-desc">Términos clave del control PID y sistemas embebidos usados en este curso.</p>
+
+  <div class="glossary-grid reveal">
+    <div class="gloss-item">
+      <div class="gloss-term">PID</div>
+      <div class="gloss-def">Proporcional-Integral-Derivativo. Algoritmo de control en lazo cerrado que calcula una acción correctiva basada en el error actual, acumulado e histórico.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">ADC (Analog-to-Digital)</div>
+      <div class="gloss-def">Convertidor que transforma una tensión analógica continua (0–3.3V) en un número digital. La ESP32 usa ADC de 12 bits: 4096 valores posibles.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">PWM (Pulse Width Modulation)</div>
+      <div class="gloss-def">Señal digital que varía su tiempo en alto ("ciclo de trabajo") para simular un voltaje analógico. Permite controlar la velocidad de motores DC.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Puente H (H-Bridge)</div>
+      <div class="gloss-def">Circuito con 4 transistores dispuestos en H que permite controlar la dirección y velocidad de un motor DC con señales lógicas de bajo voltaje.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Lazo Cerrado (Closed Loop)</div>
+      <div class="gloss-def">Sistema de control donde la salida es continuamente medida y realimentada a la entrada para corregir desviaciones. Opuesto al control en lazo abierto.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Promedio Ponderado</div>
+      <div class="gloss-def">Media matemática donde cada valor tiene un peso distinto. Permite calcular la posición relativa de la línea a partir de múltiples sensores.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">LEDC (ESP32)</div>
+      <div class="gloss-def">Periférico hardware de la ESP32 para generar señales PWM precisas. Soporta 16 canales independientes con frecuencias y resoluciones configurables.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">Kp / Kd (Ganancias)</div>
+      <div class="gloss-def">Constantes de ajuste del controlador PD. Kp determina la fuerza de reacción al error. Kd amortigua las oscilaciones. Deben sintonizarse experimentalmente.</div>
+    </div>
+    <div class="gloss-item">
+      <div class="gloss-term">dt (Delta Time)</div>
+      <div class="gloss-def">Intervalo de tiempo entre muestras del controlador. Debe ser constante para que el término derivativo sea matemáticamente correcto.</div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Robotics<em style="color:var(--green);font-style:normal;">PID</em></div>
+  <p>Memoria de Estadía Profesional · <span>Dylan Eduardo Zarate Vásquez</span></p>
+  <p style="margin-top:.4rem;">TSU en Robótica — UTVCO — 2026</p>
+</footer>
+
+<script>
+// ===================== PROGRESS BAR =====================
+window.addEventListener('scroll', () => {
+  const d = document.documentElement;
+  const pct = (d.scrollTop / (d.scrollHeight - d.clientHeight)) * 100;
+  document.getElementById('prog').style.width = pct + '%';
+});
+
+// ===================== SCROLL REVEAL =====================
+const obs = new IntersectionObserver(els => {
+  els.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, {threshold:.1});
+document.querySelectorAll('.reveal').forEach(e => obs.observe(e));
+
+// ===================== TOGGLE UNITS =====================
+function toggleUnit(id) {
+  const u = document.getElementById(id);
+  const isOpen = u.classList.toggle('open');
+  const header = u.querySelector('.unit-header');
+  header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+// ===================== COPY CODE =====================
+function copyCode(btn) {
+  const pre = btn.closest('.code-block').querySelector('pre');
+  navigator.clipboard.writeText(pre.innerText).then(() => {
+    btn.textContent = '✓ COPIADO';
+    setTimeout(() => btn.textContent = 'COPIAR', 2000);
+  });
+}
+
+// ===================== SENSOR VISUALIZER =====================
+const sc = document.getElementById('sensorCanvas');
+const sctx = sc.getContext('2d');
+let lineX = 350; // posición de la línea (0-700)
+let dragging = false;
+
+function resizeSC() {
+  const prevW = sc.width || 1;
+  sc.width = sc.parentElement.offsetWidth;
+  sc.height = 100;
+  // Mantener posición relativa de la línea al cambiar tamaño
+  lineX = (lineX / prevW) * sc.width;
+  lineX = Math.max(0, Math.min(sc.width, lineX));
+}
+resizeSC();
+lineX = sc.width / 2; // centrado inicial
+window.addEventListener('resize', () => { resizeSC(); drawSensor(); });
+
+function drawSensor() {
+  const w = sc.width, h = sc.height;
+  sctx.clearRect(0,0,w,h);
+
+  // Fondo de pista
+  sctx.fillStyle = '#0a1020';
+  sctx.fillRect(0,0,w,h);
+
+  // Línea negra (la pista) — lx ya está en píxeles del canvas
+  const lx = Math.max(0, Math.min(w, lineX));
+  sctx.fillStyle = '#fff';
+  sctx.beginPath();
+  sctx.roundRect(lx-18,10,36,h-20,4);
+  sctx.fill();
+
+  // Sensores
+  const sPos = [w*.25, w*.5, w*.75];
+  const weights = [-2000, 0, 2000];
+  let sumPond = 0, sumTot = 0;
+  const vals = [];
+
+  sPos.forEach((sx, i) => {
+    const dist = Math.abs(sx - lx);
+    const val = Math.max(0, Math.min(4095, Math.round(4095 * Math.exp(-dist*dist/(w*w*0.008)))));
+    vals.push(val);
+    sumPond += val * weights[i];
+    sumTot += val;
+
+    // Dibujar sensor
+    sctx.strokeStyle = val > 500 ? '#00ff9d' : '#243550';
+    sctx.lineWidth = 2;
+    sctx.strokeRect(sx-14, h*.3, 28, h*.5);
+    sctx.fillStyle = val > 500 ? 'rgba(0,255,157,0.15)' : 'rgba(255,255,255,0.03)';
+    sctx.fillRect(sx-14, h*.3, 28, h*.5);
+
+    // Etiqueta
+    sctx.fillStyle = '#ffb830';
+    sctx.font = `bold 9px Space Mono, monospace`;
+    sctx.textAlign = 'center';
+    sctx.fillText(['S1','S2','S3'][i], sx, h*.25);
+  });
+
+  // Cursor drag
+  sctx.fillStyle = 'rgba(0,212,255,0.6)';
+  sctx.beginPath();
+  sctx.arc(lx, h/2, 6, 0, Math.PI*2);
+  sctx.fill();
+
+  // Actualizar displays
+  vals.forEach((v,i) => {
+    document.getElementById(`sv${i+1}`).textContent = v;
+    document.getElementById(`sf${i+1}`).style.width = (v/4095*100)+'%';
+    const el = document.getElementById(`sv${i+1}`);
+    el.style.color = v > 500 ? 'var(--green)' : 'var(--muted)';
+  });
+
+  const err = sumTot === 0 ? 0 : Math.round(sumPond / sumTot);
+  const eEl = document.getElementById('errorDisplay');
+  eEl.textContent = err;
+  eEl.style.color = Math.abs(err) < 200 ? 'var(--green)' : Math.abs(err) < 1000 ? 'var(--amber)' : 'var(--red)';
+}
+
+sc.addEventListener('mousedown', e => { dragging = true; });
+sc.addEventListener('mousemove', e => {
+  if(!dragging) return;
+  const r = sc.getBoundingClientRect();
+  lineX = (e.clientX - r.left) * (sc.width / r.width);
+  lineX = Math.max(0, Math.min(sc.width, lineX));
+  drawSensor();
+});
+sc.addEventListener('mouseup', () => dragging = false);
+sc.addEventListener('mouseleave', () => dragging = false);
+sc.addEventListener('touchstart', e => { dragging = true; e.preventDefault(); }, {passive:false});
+sc.addEventListener('touchmove', e => {
+  if(!dragging) return;
+  e.preventDefault();
+  const r = sc.getBoundingClientRect();
+  const t = e.touches[0];
+  lineX = (t.clientX - r.left) * (sc.width / r.width);
+  lineX = Math.max(0, Math.min(sc.width, lineX));
+  drawSensor();
+}, {passive:false});
+sc.addEventListener('touchend', () => dragging = false);
+
+drawSensor();
+
+// ===================== PID SIMULATOR =====================
+const pc = document.getElementById('pidCanvas');
+const pctx = pc.getContext('2d');
+let pidHistory = [];
+let pidError = 0;
+let pidPrevErr = 0;
+let pidKp = 1.6, pidKd = 0.4, pidBase = 140;
+let pidRunning = false;
+let pidAF;
+
+// Estado interno de la planta de 2do orden (posición + velocidad del robot)
+let plantPos = 0;   // posición relativa a la línea
+let plantVel = 0;   // velocidad de desviación
+
+function resizePC() { pc.width = pc.parentElement.offsetWidth; }
+resizePC();
+window.addEventListener('resize', () => { resizePC(); drawPID(); });
+
+function pidStep() {
+  // Error = posición actual del robot respecto a la línea
+  pidError = plantPos;
+
+  // Controlador PD
+  const P = pidKp * pidError;
+  const D = pidKd * (pidError - pidPrevErr);
+  const corr = P + D;
+  pidPrevErr = pidError;
+
+  // Planta de 2do orden: la corrección genera una fuerza (aceleración)
+  // que cambia la velocidad, y la velocidad cambia la posición.
+  // Incluye fricción viscosa (amortiguamiento natural del robot).
+  const friction = 0.18;       // amortiguamiento mecánico
+  const plantGain = 0.012;     // cómo la corrección PD acelera el chasis
+  const acc = -corr * plantGain - plantVel * friction;
+  plantVel += acc;
+  plantPos += plantVel;
+
+  pidHistory.push(plantPos);
+  if(pidHistory.length > pc.width) pidHistory.shift();
+}
+
+function drawPID() {
+  const w = pc.width, h = 200;
+  pc.height = h;
+  pctx.clearRect(0,0,w,h);
+  pctx.fillStyle = '#060a12';
+  pctx.fillRect(0,0,w,h);
+
+  // Grid
+  pctx.strokeStyle = 'rgba(30,47,72,.5)';
+  pctx.lineWidth = 1;
+  for(let y=0;y<=4;y++){
+    const py = (y/4)*h;
+    pctx.beginPath();pctx.moveTo(0,py);pctx.lineTo(w,py);pctx.stroke();
+  }
+
+  // Zero line
+  pctx.strokeStyle = 'rgba(0,212,255,0.2)';
+  pctx.setLineDash([4,4]);
+  pctx.beginPath();pctx.moveTo(0,h/2);pctx.lineTo(w,h/2);pctx.stroke();
+  pctx.setLineDash([]);
+
+  // Labels
+  pctx.fillStyle = '#4a6a9a';
+  pctx.font = '9px Space Mono, monospace';
+  pctx.fillText('Error = 0 (centrado)', 6, h/2-4);
+
+  // Plot
+  if(pidHistory.length < 2) return;
+  const grad = pctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(255,71,87,0.8)');
+  grad.addColorStop(.5,'rgba(0,212,255,0.8)');
+  grad.addColorStop(1,'rgba(255,71,87,0.8)');
+
+  pctx.strokeStyle = grad;
+  pctx.lineWidth = 2;
+  pctx.beginPath();
+  const scale = 60; // unidades de posición visibles en medio canvas
+  pidHistory.forEach((v,i) => {
+    const x = (i / (pc.width)) * w;
+    const y = h/2 - (v / scale) * (h/2 - 10);
+    i===0 ? pctx.moveTo(x,y) : pctx.lineTo(x,y);
+  });
+  pctx.stroke();
+
+  // Current dot
+  const lastY = h/2 - (plantPos / scale) * (h/2 - 10);
+  pctx.beginPath();
+  pctx.arc(w-2, lastY, 4, 0, Math.PI*2);
+  pctx.fillStyle = '#00d4ff';
+  pctx.fill();
+}
+
+function pidLoop() {
+  pidStep();
+  drawPID();
+  pidAF = requestAnimationFrame(pidLoop);
+}
+
+function perturbPID() {
+  if(pidRunning) { cancelAnimationFrame(pidAF); pidRunning=false; }
+  plantPos = 50;   // perturbación: robot desplazado 50 unidades de la línea
+  plantVel = 8;    // con velocidad de escape inicial
+  pidPrevErr = 0;
+  pidHistory = [];
+  pidRunning = true;
+  pidLoop();
+  setTimeout(()=>{ cancelAnimationFrame(pidAF); pidRunning=false; }, 6000);
+}
+
+['kpSlider','kdSlider','baseSlider'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function(){
+    pidKp = +document.getElementById('kpSlider').value;
+    pidKd = +document.getElementById('kdSlider').value;
+    pidBase = +document.getElementById('baseSlider').value;
+    document.getElementById('kpVal').textContent = pidKp.toFixed(1);
+    document.getElementById('kdVal').textContent = pidKd.toFixed(2);
+    document.getElementById('baseVal').textContent = pidBase;
+  });
+});
+
+drawPID();
+
+// ===================== QUIZ =====================
+const questions = [
+  {
+    q: "¿Por qué se debe evitar usar time.sleep() en el loop de control PID?",
+    opts: [
+      "Porque time.sleep() consume demasiada RAM en la ESP32",
+      "Porque bloquea el CPU y hace que el dt sea variable e impredecible",
+      "Porque time.sleep() no funciona en MicroPython, solo en CPython",
+      "Porque retrasa la comunicación WiFi del módulo"
+    ],
+    ans: 1,
+    exp: "✓ Correcto. time.sleep() congela el procesador impidiendo hacer nada más, y hace que el intervalo entre cálculos PID sea inconsistente. El término Kd*d(error)/dt requiere un dt constante para ser matemáticamente correcto."
+  },
+  {
+    q: "Si la lectura del sensor izquierdo es alta y el derecho es baja, ¿qué indica el promedio ponderado?",
+    opts: [
+      "La línea está centrada bajo el robot",
+      "El robot está fuera de la pista",
+      "La línea está desplazada hacia el lado izquierdo",
+      "Los sensores están en cortocircuito"
+    ],
+    ans: 2,
+    exp: "✓ Correcto. El sensor izquierdo tiene peso -2000. Si ese sensor detecta la línea (valor alto), la suma ponderada resulta negativa, indicando que la línea está hacia la izquierda."
+  },
+  {
+    q: "¿Qué clase usa MicroPython en la ESP32 para generar PWM, reemplazando a analogWrite()?",
+    opts: [
+      "machine.LEDC(pin, freq, duty)",
+      "machine.PWM(pin, freq, duty)",
+      "machine.DAC(pin, valor)",
+      "machine.SoftSPI(frecuencia)"
+    ],
+    ans: 1,
+    exp: "✓ Correcto. MicroPython usa la clase PWM del módulo machine. Basta con crear un objeto PWM(Pin(num), freq=5000, duty=0) y luego llamar a .duty(valor) para controlar la velocidad."
+  },
+  {
+    q: "¿Qué efecto tiene aumentar excesivamente la ganancia Kd?",
+    opts: [
+      "El robot oscila con mayor amplitud y velocidad",
+      "El robot se vuelve más lento y rígido en sus correcciones",
+      "El robot ignora completamente los errores de posición",
+      "El robot acelera sin control en las rectas"
+    ],
+    ans: 1,
+    exp: "✓ Correcto. Un Kd muy alto hace que el robot resista cualquier cambio de posición. El término derivativo frena la acción correctiva tan fuerte que el movimiento se vuelve lento e ineficiente."
+  },
+  {
+    q: "¿Por qué se limitan los valores de los motores con max(0, min(255, val))?",
+    opts: [
+      "Para evitar que la ESP32 se reinicie por bajo voltaje",
+      "Porque el ADC solo acepta valores de 0 a 255",
+      "Para evitar enviar valores fuera del rango válido de PWM que dañarían el L298N",
+      "Porque PWM.duty() solo acepta 8 bits de resolución máxima"
+    ],
+    ans: 2,
+    exp: "✓ Correcto. Cuando el error es grande, la corrección puede hacer que velocidadBase ± corrección salga del rango 0-255. Enviar un valor negativo o mayor a 255 a PWM.duty() produciría comportamiento indefinido."
+  },
+  {
+    q: "¿Cuántas veces por segundo ejecuta el controlador su ciclo con un dt de 10,000 microsegundos?",
+    opts: [
+      "10 Hz (10 veces por segundo)",
+      "1000 Hz (1000 veces por segundo)",
+      "100 Hz (100 veces por segundo)",
+      "50 Hz (50 veces por segundo)"
+    ],
+    ans: 2,
+    exp: "✓ Correcto. 10,000 µs = 10 ms. En 1 segundo caben 1,000,000 µs / 10,000 µs = 100 ciclos. Esto es una frecuencia de muestreo de 100 Hz, suficiente para control de robots de velocidad media."
+  }
+];
+
+let currentQ = 0, score = 0, answered = false;
+
+function renderQ() {
+  const q = questions[currentQ];
+  const pct = (currentQ / questions.length) * 100;
+  document.getElementById('qProg').style.width = pct + '%';
+  document.getElementById('quizBody').innerHTML = `
+    <p style="font-family:'Space Mono',monospace;font-size:.7rem;color:var(--muted);margin-bottom:1rem;letter-spacing:1px;">Pregunta ${currentQ+1} de ${questions.length}</p>
+    <p class="quiz-q">${q.q}</p>
+    <div class="quiz-opts">
+      ${q.opts.map((o,i) => `<div class="quiz-opt" id="opt${i}" onclick="checkAns(${i})">
+        <div class="quiz-opt-letter">${'ABCD'[i]}</div>${o}
+      </div>`).join('')}
+    </div>
+    <div class="quiz-feedback" id="qfb"></div>
+    <button class="quiz-next" id="qnext" onclick="nextQ()">Siguiente →</button>
+  `;
+  answered = false;
+}
+
+function checkAns(i) {
+  if(answered) return;
+  answered = true;
+  const q = questions[currentQ];
+  const correct = i === q.ans;
+  if(correct) score++;
+
+  document.querySelectorAll('.quiz-opt').forEach((o,idx) => {
+    if(idx === q.ans) o.classList.add('correct');
+    else if(idx === i && !correct) o.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('qfb');
+  fb.className = 'quiz-feedback show ' + (correct ? 'ok' : 'err');
+  fb.textContent = correct ? q.exp : '✗ Incorrecto. ' + q.exp;
+  document.getElementById('qnext').classList.add('show');
+}
+
+function nextQ() {
+  currentQ++;
+  if(currentQ >= questions.length) {
+    document.getElementById('quizBody').style.display = 'none';
+    const sc = document.getElementById('quizScore');
+    sc.classList.add('show');
+    document.getElementById('scoreNum').textContent = score + '/' + questions.length;
+    const labels = ['Sigue practicando 💪','Buen intento 👍','Muy bien 🎯','¡Excelente dominio! 🏆'];
+    const li = Math.min(3, Math.floor(score / 2));
+    document.getElementById('scoreLabel').textContent = labels[li];
+    document.getElementById('qProg').style.width = '100%';
+  } else {
+    renderQ();
+  }
+}
+
+function resetQuiz() {
+  currentQ = 0; score = 0; answered = false;
+  document.getElementById('quizBody').style.display = 'block';
+  document.getElementById('quizScore').classList.remove('show');
+  renderQ();
+}
+
+renderQ();
+</script>
+</body>
+</html>
